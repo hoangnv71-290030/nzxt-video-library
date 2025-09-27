@@ -374,14 +374,23 @@
 
         function displayVideoList(videos) {
             const videoList = document.getElementById('videoList');
-            const selectedVideo = localStorage.getItem(STORAGE_KEYS.SELECTED_VIDEO);
+            const selectedVideoData = localStorage.getItem(STORAGE_KEYS.SELECTED_VIDEO);
+            let selectedVideoName = null;
+            
+            if (selectedVideoData) {
+                try {
+                    selectedVideoName = JSON.parse(selectedVideoData).name;
+                } catch (e) {
+                    // Invalid data, ignore
+                }
+            }
             
             videoList.innerHTML = '';
             
             videos.forEach(video => {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'video-item';
-                if (video.name === selectedVideo) {
+                if (video.name === selectedVideoName) {
                     videoItem.classList.add('active');
                 }
                 
@@ -404,42 +413,49 @@
             });
             element.classList.add('active');
             
-            // Save selection
-            localStorage.setItem(STORAGE_KEYS.SELECTED_VIDEO, video.name);
+            // Save selection and trigger storage event for Kraken Browser
+            const githubUser = localStorage.getItem(STORAGE_KEYS.GITHUB_USER);
+            const githubRepo = localStorage.getItem(STORAGE_KEYS.GITHUB_REPO);
+            const videosFolder = localStorage.getItem(STORAGE_KEYS.VIDEOS_FOLDER) || 'videos';
+            
+            const videoData = {
+                name: video.name,
+                url: `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${videosFolder}/${video.name}`
+            };
+            
+            localStorage.setItem(STORAGE_KEYS.SELECTED_VIDEO, JSON.stringify(videoData));
             
             showStatus(`Selected: ${video.name}`, 'success');
         }
 
         function loadAndPlayVideo() {
-            const githubUser = localStorage.getItem(STORAGE_KEYS.GITHUB_USER);
-            const githubRepo = localStorage.getItem(STORAGE_KEYS.GITHUB_REPO);
-            const videosFolder = localStorage.getItem(STORAGE_KEYS.VIDEOS_FOLDER) || 'videos';
-            const selectedVideo = localStorage.getItem(STORAGE_KEYS.SELECTED_VIDEO);
+            const selectedVideoData = localStorage.getItem(STORAGE_KEYS.SELECTED_VIDEO);
             
-            if (!githubUser || !githubRepo) {
-                showError('Please configure GitHub repository in settings');
-                return;
-            }
-            
-            if (!selectedVideo) {
+            if (!selectedVideoData) {
                 showError('Please select a video in settings');
                 return;
             }
             
-            const videoURL = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${videosFolder}/${selectedVideo}`;
-            
-            loadingOverlay.style.display = 'flex';
-            errorMessage.style.display = 'none';
-            
-            videoPlayer.src = videoURL;
-            videoPlayer.onloadeddata = () => {
-                loadingOverlay.style.display = 'none';
-            };
+            try {
+                const videoData = JSON.parse(selectedVideoData);
+                const videoURL = videoData.url;
+                
+                loadingOverlay.style.display = 'flex';
+                errorMessage.style.display = 'none';
+                
+                videoPlayer.src = videoURL;
+                videoPlayer.onloadeddata = () => {
+                    loadingOverlay.style.display = 'none';
+                };
 
-            videoPlayer.onerror = (e) => {
-                console.error('Video load error:', e);
-                showError('Error loading video. Please check your settings.');
-            };
+                videoPlayer.onerror = (e) => {
+                    console.error('Video load error:', e);
+                    showError('Error loading video. Please check your settings.');
+                };
+                
+            } catch (error) {
+                showError('Invalid video data. Please reconfigure in settings.');
+            }
         }
 
         function showStatus(message, type) {
