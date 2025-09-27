@@ -22,8 +22,8 @@
         }
 
         .container {
-            width: 320px;
-            height: 320px;
+            width: 640px;
+            height: 640px;
             position: relative;
             border-radius: 10px;
             overflow: hidden;
@@ -190,7 +190,7 @@
         <div class="video-container" id="videoContainer">
             <video id="videoPlayer" autoplay loop muted></video>
             <div class="video-overlay">
-                <button class="back-btn" onclick="showVideoList()">← Back to Library</button>
+                <button class="back-btn" onclick="showVideoList()">← Change Video</button>
             </div>
         </div>
     </div>
@@ -205,6 +205,9 @@
         const videoContainer = document.getElementById('videoContainer');
         const videoPlayer = document.getElementById('videoPlayer');
         const loading = document.getElementById('loading');
+
+        let videosData = [];
+        let currentVideoName = localStorage.getItem('nzxt-current-video') || null;
 
         // Load videos from GitHub
         async function loadVideos() {
@@ -228,6 +231,17 @@
                     return;
                 }
 
+                videosData = videoFiles;
+                
+                // Check if we have a saved video to auto-play
+                if (currentVideoName) {
+                    const savedVideo = videoFiles.find(v => v.name === currentVideoName);
+                    if (savedVideo) {
+                        playVideo(savedVideo, false); // Don't save again
+                        return;
+                    }
+                }
+                
                 displayVideoList(videoFiles);
                 
             } catch (error) {
@@ -252,7 +266,13 @@
             });
         }
 
-        function playVideo(video) {
+        function playVideo(video, shouldSave = true) {
+            // Save current video selection
+            if (shouldSave) {
+                localStorage.setItem('nzxt-current-video', video.name);
+                currentVideoName = video.name;
+            }
+            
             // GitHub raw URL
             const videoURL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${VIDEOS_FOLDER}/${video.name}`;
             
@@ -263,7 +283,7 @@
             // Load video
             videoPlayer.src = videoURL;
             videoPlayer.onloadeddata = () => {
-                console.log('Video loaded successfully');
+                console.log('Video loaded successfully:', video.name);
             };
 
             videoPlayer.onerror = (e) => {
@@ -272,11 +292,13 @@
                 showVideoList();
             };
 
-            // Mark as active
-            document.querySelectorAll('.video-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            event.target.closest('.video-item').classList.add('active');
+            // Mark as active in list (if list is displayed)
+            if (shouldSave) {
+                document.querySelectorAll('.video-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                event.target.closest('.video-item').classList.add('active');
+            }
         }
 
         function showVideoContainer() {
